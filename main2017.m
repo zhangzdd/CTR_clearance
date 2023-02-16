@@ -11,9 +11,10 @@ i = 2; %number of tubes
 
 %Load zero clearance solution (initial guess) and discretization points
 ini = load("ini.mat");
-alpha = ini.u2;
+alpha1 = ini.u1;
+alpha2 = ini.u2;
 
-Ni = size(alpha,1)/3; % Discretize coefficeint, based on zero clearance solution 
+Ni = size(alpha1,1)/3; % Discretize coefficeint, based on zero clearance solution 
 N = i*Ni;
 ez = [0 0 1];
 len1 = 150e-3;
@@ -22,8 +23,8 @@ curvature1 = 1/(150e-3);
 curvature2 = 1/(150e-3);
 
 len2 = len1;
-delta_s = len1/Ni;
-delta = 1e-6;
+delta_s = len1/(Ni-1);
+delta = 10;
 
 
 R10 = eye(3);%Base rotation of tube 1
@@ -34,7 +35,7 @@ uhat_1 = zeros(3*Ni,1);% Inner tube center line precurvature
 phat_1 = zeros(3*Ni,1);% Inner tube center line position
 
 for m = 1:Ni
-    uhat_1(3*m-2:3*m) = [1 0 0]*curvature1;%Local frame curvature
+    uhat_1(3*m-2:3*m) = [0 1 0]*curvature1;%Local frame curvature
 end
 [phat_1,R1_hat,~] = findShape2(uhat_1,len1,Ni,R10,"Tube 1");
 
@@ -47,7 +48,7 @@ phat_2 = zeros(3*Ni,1);% Outer tube center line position
 % This part is for the tunnel project
 
 for m = 1:Ni
-    uhat_2(3*m-2:3*m) = [1 0 0]*curvature2;
+    uhat_2(3*m-2:3*m) = [0 1 0]*curvature2;
 end
 [phat_2,R2_hat,g2_hat] = findShape2(uhat_2,len2,Ni,R20,"Tube 2");
 
@@ -67,7 +68,8 @@ k = [k2xy k2xy k2z];
 for m = 1:Ni
     Kd = [Kd k];
 end
-
+Kd = Kd*delta_s;
+%K = diag(Kd);
 K = diag(Kd);
 
 c = 3e-3;% 3mm clearance
@@ -75,14 +77,14 @@ c = 3e-3;% 3mm clearance
 
 
 % Calculate S
-S = zeros(1,Ni,3,3*Ni*i);
+S_zzy = zeros(1,Ni,3,3*Ni*i);
 S1 = repmat(eye(3),1,Ni);
 S2 = repmat(-eye(3),1,Ni);
 for m = 1:i-1
     for n = 1:Ni
         %S(m,n,:,:) = zeros(3,3*Ni*i); Shape indications
-        S(m,n,:,3*Ni*(m-1)+3*n-2:3*Ni*(m-1)+3*n) = eye(3);
-        S(m,n,:,3*Ni*m+3*n-2:3*Ni*m+3*n) = -eye(3);
+        S_zzy(m,n,:,3*Ni*(m-1)+3*n-2:3*Ni*(m-1)+3*n) = -eye(3);
+        S_zzy(m,n,:,3*Ni*m+3*n-2:3*Ni*m+3*n) = eye(3);
     end
 end
 
@@ -95,14 +97,12 @@ ustar_2_deviation = 0*(rand(3*Ni,1)-1/2);
 
 
 % Start the initial guess with zero clearance solutions
-ustar_1 = alpha+ustar_1_deviation;
-ustar_2 = alpha+ustar_2_deviation;
+ustar_1 = reshape(alpha1,3*Ni,1)+ustar_1_deviation;
+ustar_2 = reshape(alpha2,3*Ni,1)+ustar_2_deviation;
 
-[pstar_1,Rstar_1,g1_star] = findShape2(ustar_1,len1,Ni,R20,"Tube 1 initial guess");
+[pstar_1,Rstar_1,g1_star] = findShape2(ustar_1,len1,Ni,R10,"Tube 1 initial guess");
 [pstar_2,Rstar_2,g2_star] = findShape2(ustar_2,len2,Ni,R20,"Tube 2 initial guess");
-[p_alpha,~,g_alpha] = findShape2(alpha,len1,Ni,R20,"Zero Clearance Solution");
-%plotSection(g_alpha,3e-3,[0 1 0]);
-%plotSection(g2_star,3e-3,[0 1 0]);
+[p_alpha,~,g_alpha] = findShape2(reshape(alpha2,3*Ni,1),len1,Ni,R20,"Zero Clearance Solution");
 
 
 %disp(norm(pstar_1 - pstar_2));
@@ -112,7 +112,7 @@ pstar = [pstar_1;pstar_2];
 
 count = 0;
 % Loop for updating guess
-while 1
+% while 1
 
 %Update ustar1/2 from updated ustar
 ustar_1 = ustar(1:3*Ni);
@@ -135,7 +135,7 @@ for m = 1:Ni
         end
         %Rstar_k = expm(hat(ustar_1(3*n-2:3*n)));
         Rstar_k = squeeze(Rstar_1(n,:,:));
-        Jp1(3*m-2:3*m,3*n-2:3*n)=hat(pstar_1(3*n-2:3*n)-pstar_1(3*m-2:3*m))*Rstar_k;
+        Jp1(3*m-2:3*m,3*n-2:3*n)=hat(pstar_1(3*n-2:3*n)-pstar_1(3*m-2:3*m))*Rstar_k*delta_s;
     end
 end
 
@@ -147,7 +147,7 @@ for m = 1:Ni
         end
         %Rstar_k = expm(hat(ustar_2(3*n-2:3*n)));
         Rstar_k = squeeze(Rstar_2(n,:,:));
-        Jp2(3*m-2:3*m,3*n-2:3*n)=hat(pstar_2(3*n-2:3*n)-pstar_2(3*m-2:3*m))*Rstar_k;
+        Jp2(3*m-2:3*m,3*n-2:3*n)=hat(pstar_2(3*n-2:3*n)-pstar_2(3*m-2:3*m))*Rstar_k*delta_s;
     end
 end
 Jp = blkdiag(Jp1,Jp2);
@@ -155,7 +155,6 @@ Jp = blkdiag(Jp1,Jp2);
 %Calculate P 
 P1 = zeros(Ni,3,3);  
 P2 = zeros(Ni,3,3);
-P = zeros(i,Ni,3,3);
 for j = 1:Ni
     pdot_1 = squeeze(Rstar_1(j,:,:))*ez';
     P1(j,:,:) = eye(3)-pdot_1*pdot_1';
@@ -165,20 +164,18 @@ for j = 1:Ni
     pdot_2 = squeeze(Rstar_2(j,:,:))*ez';
     P2(j,:,:) = eye(3)-pdot_2*pdot_2';
 end
-P(1,:,:,:) = P1;
-P(2,:,:,:) = P2;
+P_zzy = zeros(i,Ni,3,3);
+P_zzy(1,:,:,:) = P1;
+P_zzy(2,:,:,:) = P2;
 
 
 %Calculate X
-X = zeros(i,Ni,3,3*Ni*i);
+X_zzy = zeros(i,Ni,3,3*Ni*i);
 for m = 1:i-1
     for n = 1:Ni
-        X(m,n,:,:) = squeeze(P(m,n,:,:))*squeeze(S(m,n,:,:))*Jp;
-        %X(isnan(S)) = 0;
+        X_zzy(m,n,:,:) = squeeze(P_zzy(m,n,:,:))*squeeze(S_zzy(m,n,:,:))*Jp;
     end
 end
-       
-
 
 
 %Calculate q
@@ -190,83 +187,108 @@ for m = 1:i-1
 end
 
 % Formulate h and q from lambda and optimize upon lambda
-lambda = ones((i-1)*Ni,1);
+%lambda = ones((i-1)*Ni,1);
 previous = 0;
 previous_lambda = zeros((i-1)*Ni,1);
+maxIter = 200;
+stepSize = 0.3;
+lambda_zzy = 0.1/Ni*ones(Ni,1);
+dlambda_zzy = zeros(Ni,1);
 %lambda optimizing loop
-while 1
-    %Formulate Q_lambda
+for lp = 1:maxIter
+    
+    disp(lp);
+
+    relativeSize = stepSize*(norm(lambda_zzy)+1e-6);
+    dlambda_zzy = relativeSize * dlambda_zzy/(norm(dlambda_zzy)+1e-9);
+    lambda_zzy = lambda_zzy + dlambda_zzy;
+    lambda_zzy(lambda_zzy<0) = 0;
+    
     Q_lambda = K;
     for m = 1:i-1
         for n = 1:Ni
          k = (m-1)*Ni+n;
-         Q_lambda = Q_lambda + lambda(k)*squeeze(X(m,n,:,:))'*squeeze(X(m,n,:,:));
+         Q_lambda = Q_lambda + lambda_zzy(k)*squeeze(X_zzy(m,n,:,:))'*squeeze(X_zzy(m,n,:,:));
         end
     end
 
     h_lambda = g;
-    delta_u = Q_lambda\h_lambda;
+    delta_u_zzy =  Q_lambda\h_lambda;
+
     for m = 1:i-1
         for n = 1:Ni
         k = (m-1)*Ni+n;
-        G_u = 1/2*g'*inv(Q_lambda)*squeeze(X(m,n,:,:))'*squeeze(X(m,n,:,:))*inv(Q_lambda)*g-q(m,n);
-                
-                
-        lambda(k) = lambda(k) + delta*G_u;
+        G_u = 1/2*delta_u_zzy'*squeeze(X_zzy(m,n,:,:))'*squeeze(X_zzy(m,n,:,:))*delta_u_zzy-q(m,n);
+        dlambda_zzy(k) = G_u;                        
         end
    
     end
     
     
     q_col = reshape(q,(i-1)*Ni,1);
-    J_lambda = 1/2*g'*inv(Q_lambda)*g-q_col'*lambda;
-
-    disp(J_lambda);
-    lambda(lambda<0) = 0;
-
-    disp(J_lambda>previous);
-    if J_lambda-previous<1e-9 
-%         if J_lambda>previous
-%             break;
-%         end
-        break;
-        
+    J_lambda_zzy = 1/2*g'*inv(Q_lambda)*g-q_col'*lambda_zzy;
+    %disp(J_lambda_zzy-previous)
+    disp(J_lambda_zzy)
+% 
+%     if abs(J_lambda_zzy-previous)<9e-6 
+% %         if J_lambda>previous
+% %             break;
+% %         end
+%         break;
+%         
+%     end
+    
+    if mod(lp,50)==0
+        stepSize = stepSize*0.6;
     end
-    if J_lambda<previous
-        delta = delta*0.97;
+    
+    if J_lambda_zzy > previous
+        if lp>1
+        stepSize = stepSize*0.8;
+        end
     end
-    previous = J_lambda;
+    previous = J_lambda_zzy;
 
     end
     
     
     % lambda already optimized, use current delta_u for update
     
-
-    obj = 1/2*delta_u'*K*delta_u+g'*delta_u;
-
-
+ 
+    %obj = 1/2*delta_u'*K*delta_u+g'*delta_u;
     count = count+1;
-    ustar = ustar+delta_u;
-    pstar_Jp = Jp*delta_u;
+    ustar = ustar+delta_u_zzy;
+    pstar_Jp = Jp*delta_u_zzy;
 
-    if norm(pstar_Jp)<1e-6
-        break;
-    end
+%     if norm(pstar_Jp)<1e-6
+%         break;
+%     end
     %figure(count);
     [pstar_1_new,R1_new,g1_new] = findShape2(ustar(1:3*Ni),len1,Ni,R10,['Tube 1, iter ',num2str(count)]);
     [pstar_2_new,R2_new,g2_new] = findShape2(ustar(3*Ni+1:3*i*Ni),len1,Ni,R20,['Tube 2, iter ',num2str(count)]);
+    h = figure(2);
+%     end
+    set(h,'Position', [100,100, 500, 850]);
+    view([0,1,0])
+    rin1 = 4.15e-3;
+% rin1 = 3;
+    rout1 = rin1 + 2e-3;
+    
+    rin2 = 0.95e-3;
+    rout2 = 1.15e-3;
+    hold off
+    plot3DTubes(g1_new, rin1, rout1, 0.15,[1,0,0]);
+    hold on
+    plot3DTubes(g2_new, rin2, rout2, 1);
+    axis equal;
+    %save("p_zzy.mat","pstar_2_new","pstar_1_new");
     %plotSection(g2_new,3e-3,[0 1 0]);
     %Compare updating with Jp and updating with findShape
     
     Rstar_2 = R2_new;
     Rstar_1 = R1_new;
-    %pstar = [pstar_1_new; pstar_2_new];
-    pstar = pstar_Jp+pstar;
-    %disp(norm(pstar_Jp-pstar));
+    pstar = [pstar_1_new; pstar_2_new];
 
-
-
-end
+%end
 
 disp("Finished")
