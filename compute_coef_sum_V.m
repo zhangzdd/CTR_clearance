@@ -9,7 +9,7 @@ function coef = compute_coef_sum_V(c,Rstar_1,P2,Jp,S,pstar,Ni,circle_sample,lamb
             ci = c{m};
             P2j = squeeze(P2(n,:,:));
 
-            coef = coef + lambda(k)*(ci'*R1j'*P2j*R1j*ci+2*ci'*R1j'*P2j*Sj*pstar+pstar'*Sj'*Sj*pstar);
+            coef = coef + lambda(k)*(ci'*R1j'*P2j*R1j*ci+2*ci'*R1j'*P2j*Sj*pstar+pstar'*Sj'*P2j*Sj*pstar);
         end
     end
 end

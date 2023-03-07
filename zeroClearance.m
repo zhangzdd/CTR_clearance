@@ -10,14 +10,14 @@ Ni = 50;
 len1 = 150e-3;
 len2 = 150e-3;
 alpha = 180;
-curvature1 = 1/(150e-3);
+curvature1 = 1/(50e-3);
 curvature2 = 1/(150e-3);
 
 u1_pre = @(s) [0 1 0]*curvature1;
 u2_pre = @(s) [0 1 0]*curvature2;
 
 tube1 = tube(150e-3,Ni,u1_pre,[20.07e-2,0.3]);
-tube2 = tube(150e-3,Ni,u1_pre,[5.07e-2,0.3]);
+tube2 = tube(150e-3,Ni,u2_pre,[5.07e-2,0.3]);
 tset = tubeset({tube1,tube2},{[0,0],[180,0]});
 R10 = eye(3);%Frame rotation matrix of tube 1
 R20 = eye(3)*rotz(alpha);%Frame rotation matrix of tube 2
@@ -48,7 +48,7 @@ best_ini = fsolve(f,ini);
 
 u2z_array = reshape(u2out,[],1);
 p_array_2 = pout;
-plot3(p_array_2(1,:),p_array_2(2,:),p_array_2(3,:),"DisplayName","Final Solution From p");
+%plot3(p_array_2(1,:),p_array_2(2,:),p_array_2(3,:),"DisplayName","Final Solution From p");
 
 %Recover the whole u1,u2 vector
 u2 = [];
@@ -75,7 +75,7 @@ end
 % end
 
 % Use findShape2 to validate if it is correctly written
-findShape2(u2,len1,Ni,R20,"Final Solution From u");
+findShape2(u2,len1,Ni,R20,"Zero clearance solution");
 legend();
 legend show;
 save("ini.mat","u2","u1");

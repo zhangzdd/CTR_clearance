@@ -73,14 +73,14 @@ uhat = [uhat_1;uhat_2];
 
 
 v1 = 0.3; %Poisson Ratio
-k1xy = 5.07e-2;k1z = k1xy/(1+v1);% Bending and torsional stiffness of inner tube
+k1xy = 20.07e-2;k1z = k1xy/(1+v1);% Bending and torsional stiffness of inner tube
 k = [k1xy k1xy k1z];Kd = k;
 for m = 1:Ni-1
     Kd = [Kd k];
 end
 
 v2 = 0.3;
-k2xy = 20.07e-2;k2z = k2xy/(1+v2);% Bending and torsional stiffness of inner tube
+k2xy = 5.07e-2;k2z = k2xy/(1+v2);% Bending and torsional stiffness of inner tube
 k = [k2xy k2xy k2z];
 for m = 1:Ni
     Kd = [Kd k];
